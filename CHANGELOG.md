@@ -2,6 +2,17 @@
 
 All notable changes to WhipWhip are documented here.
 
+## 0.1.4 - 2026-08-18
+
+### Fixed
+
+- Restored the original v0.1.2 pointer and whip physics behavior after the
+  v0.1.3 motion changes proved less responsive in real use.
+
+### Changed
+
+- The selector ownership line now includes `amirsrad.ir`.
+
 ## 0.1.3 - 2026-08-18
 
 ### Added

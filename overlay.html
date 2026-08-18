@@ -117,7 +117,7 @@
       <span class="hint">Move fast to crack · Left-click to drop · Right-click to dismiss</span>
       <button id="equipButton" class="equip-button">Equip</button>
     </footer>
-    <p class="ownership">© 2026 AMIRSRAD · All rights reserved</p>
+    <p class="ownership">© 2026 AMIRSRAD · amirsrad.ir · All rights reserved</p>
   </main>
 </div>
 <script>
@@ -134,18 +134,17 @@ const P = {
   // Physics
   gravity:        1.2,   // normal gravity
   dropGravity:    0.95,    // gravity when dropping/despawning
-  damping:        0.965, // velocity retention per fixed physics step
-  constraintIters:22,    // higher = stiffer chain
-  maxStretchRatio: 1.12, // hard cap for per-link stretch during fast whips
-  tipWeight:      1.0,   // gravity multiplier blended toward the tip
-  handleTracking: 0.72,  // cursor following; lower values filter pointer jitter
+  damping:        0.96,  // velocity retention per frame (1 = no loss)
+  constraintIters:20,    // higher = stiffer chain
+  maxStretchRatio: 1.2, // hard cap for per-link stretch during fast whips
 
   // Dynamic handle aim (target angle + restoring spring, not static lock)
   baseTargetAngle: -1.12, // radians, default "up-right" resting direction
-  handleMotionInfluence: .88, // how strongly the base trails mouse movement
-  handleVelocityForFullAim: 34, // px per 60 Hz step for maximum aim influence
-  handleSpring:      0.18, // restoring force to target angle
-  handleAngularDamping: 0.76, // angular velocity retention
+  handleAimByMouseX: 0.4, // horizontal mouse movement influence on target angle
+  handleAimByMouseY: 0.2, // vertical mouse movement influence on target angle
+  handleAimClamp:    2.0, // max radians target can deviate from base angle
+  handleSpring:      0.7, // restoring force to target angle
+  handleAngularDamping: 0.078, // angular velocity damping
   basePoseSegments: 2,    // how many early segments are strongly guided
   basePoseStiffStart: 0.9, // stiffness near handle
   basePoseStiffEnd:   0.8, // stiffness near end of guided region
@@ -225,7 +224,7 @@ const WEAPONS = {
     label: 'Rope Dart',
     physics: {
       segments: 32, segmentLength: 22, taper: 0.82, gravity: 1.15,
-      tipWeight: 2.25, damping: 0.972, constraintIters: 24,
+      damping: 0.972, constraintIters: 24,
       handleMaxBendDeg: 26, tipMaxBendDeg: 165, crackSpeed: 300,
       lineWidthHandle: 5, lineWidthTip: 3, outlineWidth: 2,
       handleExtraWidth: 1, arcWidth: 275,
@@ -235,7 +234,7 @@ const WEAPONS = {
     label: 'Steel Cable',
     physics: {
       segments: 24, segmentLength: 22, taper: 0.9, gravity: 1.35,
-      tipWeight: 1.35, damping: 0.978, constraintIters: 28,
+      damping: 0.978, constraintIters: 28,
       maxStretchRatio: 1.06, handleMaxBendDeg: 9, tipMaxBendDeg: 82,
       crackSpeed: 325, lineWidthHandle: 8, lineWidthTip: 6,
       outlineWidth: 2, handleExtraWidth: 2, arcWidth: 225,
@@ -245,7 +244,7 @@ const WEAPONS = {
     label: 'Ribbon Blade',
     physics: {
       segments: 34, segmentLength: 22, taper: 0.5, gravity: 0.82,
-      damping: 0.95, constraintIters: 19, handleTracking: 0.78,
+      damping: 0.95, constraintIters: 19,
       handleMaxBendDeg: 18, tipMaxBendDeg: 168, crackSpeed: 292,
       lineWidthHandle: 14, lineWidthTip: 4, outlineWidth: 1,
       handleExtraWidth: 1, arcWidth: 290, arcHeight: 210,
@@ -270,10 +269,7 @@ resize();
 window.addEventListener('resize', resize);
 
 let mouseX = 0, mouseY = 0;
-let handleX = 0, handleY = 0;
-let mouseVelocityX = 0, mouseVelocityY = 0;
-let lastPointerTime = 0;
-let pointerSeen = false;
+let prevMouseX = 0, prevMouseY = 0;
 let whip = null;
 let dropping = false;
 let lastCrackTime = 0;
@@ -291,21 +287,7 @@ let activeColor = DEFAULT_COLOR;
 
 const WHIP_CRACK_SOUNDS = ['sounds/A.mp3', 'sounds/B.mp3', 'sounds/C.mp3', 'sounds/D.mp3', 'sounds/E.mp3'];
 
-document.addEventListener('mousemove', event => {
-  const now = performance.now();
-  if (pointerSeen) {
-    const elapsed = clamp(now - lastPointerTime, 4, 50);
-    const frameScale = 1000 / 60 / elapsed;
-    const instantX = (event.clientX - mouseX) * frameScale;
-    const instantY = (event.clientY - mouseY) * frameScale;
-    mouseVelocityX = lerp(mouseVelocityX, instantX, .38);
-    mouseVelocityY = lerp(mouseVelocityY, instantY, .38);
-  }
-  mouseX = event.clientX;
-  mouseY = event.clientY;
-  lastPointerTime = now;
-  pointerSeen = true;
-});
+document.addEventListener('mousemove', event => { mouseX = event.clientX; mouseY = event.clientY; });
 document.addEventListener('mousedown', event => {
   if (event.button !== 0) return;
   if (configuring || event.target.closest('.armory')) return;
@@ -381,11 +363,9 @@ function beginWhip() {
   configuring = false;
   armoryBackdrop.hidden = true;
   document.body.classList.add('armed');
-  handleX = pointerSeen ? mouseX : W / 2;
-  handleY = pointerSeen ? mouseY : H / 2;
-  mouseVelocityX = 0;
-  mouseVelocityY = 0;
-  whip = spawnWhip(handleX, handleY);
+  whip = spawnWhip(mouseX || W / 2, mouseY || H / 2);
+  prevMouseX = mouseX;
+  prevMouseY = mouseY;
   handleAngle = P.baseTargetAngle;
   handleAngVel = 0;
   window.bridge.setInteractionMode(false);
@@ -503,18 +483,18 @@ function playCrackSound() {
 
 function updateHandleAim() {
   if (dropping) return;
-  const speed = Math.hypot(mouseVelocityX, mouseVelocityY);
-  const motionWeight = clamp(speed / P.handleVelocityForFullAim, 0, 1) * P.handleMotionInfluence;
-  const trailingAngle = speed > .1
-    ? Math.atan2(-mouseVelocityY, -mouseVelocityX)
-    : P.baseTargetAngle;
-  const target = P.baseTargetAngle + wrapPi(trailingAngle - P.baseTargetAngle) * motionWeight;
+  const mvx = mouseX - prevMouseX;
+  const mvy = mouseY - prevMouseY;
+  const delta = clamp(
+    mvx * P.handleAimByMouseX + mvy * P.handleAimByMouseY,
+    -P.handleAimClamp,
+    P.handleAimClamp
+  );
+  const target = P.baseTargetAngle + delta;
   const err = wrapPi(target - handleAngle);
   handleAngVel += err * P.handleSpring;
   handleAngVel *= P.handleAngularDamping;
   handleAngle = wrapPi(handleAngle + handleAngVel);
-  mouseVelocityX *= .84;
-  mouseVelocityY *= .84;
 }
 
 function applyBasePose() {
@@ -635,31 +615,24 @@ function update() {
   const g = dropping ? P.dropGravity : P.gravity;
   updateHandleAim();
 
-  if (!dropping) {
-    handleX = lerp(handleX, mouseX, P.handleTracking);
-    handleY = lerp(handleY, mouseY, P.handleTracking);
-  }
-
   // Verlet integration
   const start = dropping ? 0 : 1; // if dropping, handle is free too
   for (let i = start; i < whip.length; i++) {
     const p = whip[i];
     const vx = (p.x - p.px) * P.damping;
     const vy = (p.y - p.py) * P.damping;
-    const position = i / Math.max(1, whip.length - 1);
-    const gravityScale = lerp(1, P.tipWeight, position * position * position * position);
     p.px = p.x;
     p.py = p.y;
     p.x += vx;
-    p.y += vy + g * gravityScale;
+    p.y += vy + g;
   }
 
   // Pin handle to mouse
   if (!dropping) {
-    whip[0].x = handleX;
-    whip[0].y = handleY;
-    whip[0].px = handleX;
-    whip[0].py = handleY;
+    whip[0].x = mouseX;
+    whip[0].y = mouseY;
+    whip[0].px = mouseX;
+    whip[0].py = mouseY;
   }
 
   // Prevent rubber-band stretching spikes before constraints.
@@ -715,6 +688,8 @@ function update() {
     document.body.classList.remove('armed');
     window.bridge.hideOverlay();
   }
+  prevMouseX = mouseX;
+  prevMouseY = mouseY;
 }
 
 // ── Rendering ───────────────────────────────────────────────────────────────
@@ -970,22 +945,13 @@ function draw() {
 }
 
 // ── Main loop ───────────────────────────────────────────────────────────────
-const PHYSICS_STEP_MS = 1000 / 60;
-let lastFrameTime = performance.now();
-let physicsAccumulator = 0;
-
-function loop(frameTime) {
-  physicsAccumulator += Math.min(frameTime - lastFrameTime, PHYSICS_STEP_MS * 3);
-  lastFrameTime = frameTime;
-  while (physicsAccumulator >= PHYSICS_STEP_MS) {
-    update();
-    updateFireParticles();
-    physicsAccumulator -= PHYSICS_STEP_MS;
-  }
+function loop() {
+  update();
+  updateFireParticles();
   draw();
   requestAnimationFrame(loop);
 }
-requestAnimationFrame(loop);
+loop();
 
 // ── IPC from main process ───────────────────────────────────────────────────
 window.bridge.onSpawnWhip(layout => {

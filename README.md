@@ -16,7 +16,7 @@ keyboard action to the previously active application.
 - **Plasma Lash** — faster movement with layered neon energy and bloom.
 - **Firebrand** — a hot gradient, flame glow, and animated embers.
 - **Bullwhip** — a long professional leather taper tuned for precise cracks.
-- **Rope Dart** — a flexible cord with weighted-tip physics and a steel point.
+- **Rope Dart** — a flexible cord with a distinctive steel point.
 - **Steel Cable** — short, stiff industrial movement with reinforced nodes.
 - **Ribbon Blade** — broad metallic rendering with light, flowing physics.
 
@@ -79,7 +79,7 @@ telemetry, or mine cryptocurrency.
 
 - `main.js` owns the tray, transparent overlay, focus handoff, and OS macros.
 - `preload.js` exposes the narrow IPC bridge used by the UI.
-- `overlay.html` contains the armory, fixed-step Verlet physics, weapon renderers,
+- `overlay.html` contains the armory, responsive Verlet physics, weapon renderers,
   particles, crack detection, multi-display layout, and local selection persistence.
 - `bin/whipwhip.js` starts the desktop app when installed as a CLI package.
 
