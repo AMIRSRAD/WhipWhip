@@ -228,18 +228,28 @@ let handleAngVel = 0;
 let configuring = false;
 let particles = [];
 
-const storedWeapon = localStorage.getItem('whipwhip.weapon');
-let activeWeapon = Object.hasOwn(WEAPONS, storedWeapon) ? storedWeapon : 'classic';
-const storedColor = localStorage.getItem('whipwhip.color');
-let activeColor = /^#[0-9a-f]{6}$/i.test(storedColor || '') ? storedColor : '#ff3b5c';
+let activeWeapon = 'classic';
+let activeColor = '#ff3b5c';
 
 const WHIP_CRACK_SOUNDS = ['sounds/A.mp3', 'sounds/B.mp3', 'sounds/C.mp3', 'sounds/D.mp3', 'sounds/E.mp3'];
 
 document.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
 document.addEventListener('mousedown', event => {
+  if (event.button !== 0) return;
   if (configuring || event.target.closest('.armory')) return;
   if (whip && !dropping) dropping = true;
 });
+document.addEventListener('contextmenu', event => {
+  event.preventDefault();
+  if (!configuring && whip) dismissWhip();
+});
+
+function restoreSavedSelection() {
+  const storedWeapon = localStorage.getItem('whipwhip.weapon');
+  const storedColor = localStorage.getItem('whipwhip.color');
+  activeWeapon = Object.hasOwn(WEAPONS, storedWeapon) ? storedWeapon : 'classic';
+  activeColor = /^#[0-9a-f]{6}$/i.test(storedColor || '') ? storedColor : '#ff3b5c';
+}
 
 function applyWeaponSettings() {
   Object.assign(P, DEFAULT_PHYSICS, WEAPONS[activeWeapon].physics);
@@ -260,6 +270,7 @@ function refreshArmorySelection() {
 }
 
 function openArmory() {
+  restoreSavedSelection();
   whip = null;
   particles = [];
   dropping = false;
@@ -275,6 +286,30 @@ function closeArmory() {
   armoryBackdrop.hidden = true;
   window.bridge.hideOverlay();
   window.bridge.setInteractionMode(false);
+}
+
+function beginWhip() {
+  applyWeaponSettings();
+  particles = [];
+  configuring = false;
+  armoryBackdrop.hidden = true;
+  document.body.classList.add('armed');
+  whip = spawnWhip(mouseX || W / 2, mouseY || H / 2);
+  prevMouseX = mouseX;
+  prevMouseY = mouseY;
+  handleAngle = P.baseTargetAngle;
+  handleAngVel = 0;
+  window.bridge.setInteractionMode(false);
+}
+
+function dismissWhip() {
+  whip = null;
+  particles = [];
+  dropping = false;
+  configuring = false;
+  armoryBackdrop.hidden = true;
+  document.body.classList.remove('armed');
+  window.bridge.hideOverlay();
 }
 
 weaponCards.forEach(card => card.addEventListener('click', () => {
@@ -296,20 +331,10 @@ closeArmoryButton.addEventListener('click', closeArmory);
 equipButton.addEventListener('click', () => {
   localStorage.setItem('whipwhip.weapon', activeWeapon);
   localStorage.setItem('whipwhip.color', activeColor);
-  applyWeaponSettings();
-  particles = [];
-  configuring = false;
-  armoryBackdrop.hidden = true;
-  document.body.classList.add('armed');
-  whip = spawnWhip(mouseX || W / 2, mouseY || H / 2);
-  whipSpawnTime = Date.now();
-  prevMouseX = mouseX;
-  prevMouseY = mouseY;
-  handleAngle = P.baseTargetAngle;
-  handleAngVel = 0;
-  window.bridge.setInteractionMode(false);
+  beginWhip();
 });
 
+restoreSavedSelection();
 applyWeaponSettings();
 
 // ── Whip creation ───────────────────────────────────────────────────────────
@@ -763,8 +788,11 @@ loop();
 
 // ── IPC from main process ───────────────────────────────────────────────────
 window.bridge.onSpawnWhip(() => {
-  openArmory();
+  restoreSavedSelection();
+  beginWhip();
 });
+
+window.bridge.onOpenArmory(openArmory);
 
 window.bridge.onDropWhip(() => {
   if (configuring) closeArmory();

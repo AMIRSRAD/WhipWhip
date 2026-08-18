@@ -2,6 +2,22 @@
 
 All notable changes to WhipWhip are documented here.
 
+## 0.1.2 - 2026-08-18
+
+### Fixed
+
+- Normal executable launches now open the selector instead of starting silently
+  in the tray.
+- Starting WhipWhip again now reuses the single running instance and opens its
+  selector.
+
+### Changed
+
+- Left-clicking the Windows tray icon restores the saved whip immediately.
+- The tray menu now includes **Show whip**, **Change settings**, and **Quit**.
+- Right-clicking an active whip dismisses it immediately; left-clicking retains
+  the animated drop behavior.
+
 ## 0.1.1 - 2026-08-18
 
 ### Changed

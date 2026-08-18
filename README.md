@@ -47,12 +47,14 @@ keyboard automation requires `xdotool`.
 
 ## Controls
 
-1. Click the WhipWhip tray icon to open the armory.
-2. Choose a weapon and color.
-3. Select **Equip**. Focus returns to the application you were using.
-4. Move the mouse sharply to crack the weapon.
-5. Click anywhere to drop it and close the overlay.
-6. Right-click the tray icon and choose **Quit** to exit.
+1. Launch WhipWhip to open the selector. Starting it again reuses the existing
+   process and brings the selector back—only one instance can run.
+2. Choose a weapon and color, then select **Equip**.
+3. Move the mouse sharply to crack the weapon.
+4. Left-click anywhere to drop it with animation.
+5. Right-click anywhere to dismiss it immediately.
+6. Left-click the tray icon to restore the saved whip directly.
+7. Right-click the tray icon for **Show whip**, **Change settings**, and **Quit**.
 
 ## What the crack does
 

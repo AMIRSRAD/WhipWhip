@@ -29,7 +29,7 @@ if (process.platform === 'win32') {
 // ── Globals ─────────────────────────────────────────────────────────────────
 let tray, overlay;
 let overlayReady = false;
-let spawnQueued = false;
+let queuedOverlayAction = null;
 let lastExternalWindow = null;
 let foregroundPoll = null;
 
@@ -43,6 +43,7 @@ const VK_TAB     = 0x09;
 const KEYUP      = 0x0002;
 
 app.setName('WhipWhip');
+if (process.platform === 'win32') app.setAppUserModelId('com.whipwhip.desktop');
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 
 if (!hasSingleInstanceLock) {
@@ -191,15 +192,16 @@ function createOverlay() {
   overlay.loadFile('overlay.html').catch(error => console.error('Unable to load overlay:', error));
   overlay.webContents.on('did-finish-load', () => {
     overlayReady = true;
-    if (spawnQueued && overlay && overlay.isVisible()) {
-      spawnQueued = false;
-      overlay.webContents.send('spawn-whip');
+    if (queuedOverlayAction && overlay && overlay.isVisible()) {
+      const action = queuedOverlayAction;
+      queuedOverlayAction = null;
+      overlay.webContents.send(action);
     }
   });
   overlay.on('closed', () => {
     overlay = null;
     overlayReady = false;
-    spawnQueued = false;
+    queuedOverlayAction = null;
   });
   overlay.webContents.on('render-process-gone', (_event, details) => {
     console.error('Overlay renderer exited unexpectedly:', details.reason);
@@ -207,19 +209,30 @@ function createOverlay() {
   });
 }
 
-function toggleOverlay() {
-  if (overlay && overlay.isVisible()) {
-    overlay.webContents.send('drop-whip');
-    return;
-  }
-  rememberForegroundWindow();
+function showOverlay(action, captureForeground = false) {
+  // Tray clicks briefly make the Windows taskbar the foreground window. For
+  // those calls, retain the app remembered by the background poll instead.
+  if (captureForeground) rememberForegroundWindow();
   if (!overlay) createOverlay();
   overlay.show();
   if (overlayReady) {
-    overlay.webContents.send('spawn-whip');
+    queuedOverlayAction = null;
+    overlay.webContents.send(action);
   } else {
-    spawnQueued = true;
+    queuedOverlayAction = action;
   }
+}
+
+function showWhip() {
+  showOverlay('spawn-whip');
+}
+
+function showArmory() {
+  showOverlay('open-armory');
+}
+
+function showLaunchArmory() {
+  showOverlay('open-armory', true);
 }
 
 // ── IPC ─────────────────────────────────────────────────────────────────────
@@ -355,20 +368,27 @@ app.whenReady().then(async () => {
   tray.setToolTip('WhipWhip - open the armory');
   tray.setContextMenu(
     Menu.buildFromTemplate([
+      { label: 'Show whip', click: showWhip },
+      { label: 'Change settings', click: showArmory },
+      { type: 'separator' },
       { label: 'Quit', click: () => app.quit() },
     ])
   );
-  tray.on('click', toggleOverlay);
+  tray.on('click', showWhip);
   foregroundPoll = setInterval(rememberForegroundWindow, 500);
   foregroundPoll.unref();
 
-  if (process.argv.includes('--show-armory')) {
-    setTimeout(toggleOverlay, 200);
-  }
+  // A normal executable launch always presents visible UI. This also prevents
+  // the app from appearing to do nothing when Windows hides its tray icon.
+  setTimeout(showLaunchArmory, 200);
 });
 
 app.on('second-instance', () => {
-  if (app.isReady() && (!overlay || !overlay.isVisible())) toggleOverlay();
+  if (app.isReady()) showLaunchArmory();
+});
+
+app.on('activate', () => {
+  if (app.isReady()) showLaunchArmory();
 });
 
 app.on('before-quit', () => {
