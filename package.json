@@ -49,8 +49,8 @@
     "dev": "electron . --show-armory",
     "check": "node scripts/check.js",
     "pack": "npm pack",
-    "dist": "electron-builder",
-    "dist:win": "electron-builder --win --x64",
+    "dist": "electron-builder --publish never",
+    "dist:win": "electron-builder --win --x64 --publish never",
     "dist:dir": "electron-builder --dir --win --x64"
   },
   "dependencies": {
