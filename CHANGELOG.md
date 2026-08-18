@@ -2,6 +2,15 @@
 
 All notable changes to WhipWhip are documented here.
 
+## 0.1.1 - 2026-08-18
+
+### Changed
+
+- Replaced the neon branding with a minimal charcoal, off-white, and muted coral
+  whip mark.
+- Updated the README image, tray image, Windows executable and installer icon,
+  and macOS icon to use the same restrained identity.
+
 ## 0.1.0 - 2026-08-18
 
 ### Added
