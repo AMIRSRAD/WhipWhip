@@ -1,4 +1,12 @@
 node_modules/
 dist/
 out/
+release/
 *.tgz
+.env
+*.log
+*.pfx
+*.p12
+*.cer
+*.key
+electron-builder.env

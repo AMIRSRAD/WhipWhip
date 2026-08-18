@@ -1,12 +1,25 @@
 {
-  "name": "openwhip",
-  "version": "1.1.0",
-  "description": "Whip Claude into shape",
+  "name": "whipwhip",
+  "version": "0.1.0",
+  "private": true,
+  "productName": "WhipWhip",
+  "description": "An interactive desktop armory of colorful whips",
+  "author": {
+    "name": "AMIRSRAD",
+    "url": "https://github.com/AMIRSRAD"
+  },
   "license": "MIT",
+  "homepage": "https://github.com/AMIRSRAD/WhipWhip#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AMIRSRAD/WhipWhip.git"
+  },
+  "bugs": {
+    "url": "https://github.com/AMIRSRAD/WhipWhip/issues"
+  },
   "main": "main.js",
   "bin": {
-    "openwhip": "bin/openwhip.js",
-    "badclaude": "bin/openwhip.js"
+    "whipwhip": "bin/whipwhip.js"
   },
   "os": [
     "darwin",
@@ -22,31 +35,93 @@
     "overlay",
     "cli"
   ],
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/GitFrog1111/OpenWhip.git"
-  },
-  "bugs": {
-    "url": "https://github.com/GitFrog1111/OpenWhip/issues"
-  },
-  "homepage": "https://github.com/GitFrog1111/OpenWhip#readme",
   "files": [
     "main.js",
     "preload.js",
     "overlay.html",
     "sounds",
     "icon",
-    "bin/openwhip.js",
-    "bin/badclaude.js",
+    "bin/whipwhip.js",
     "README.md"
   ],
   "scripts": {
     "start": "electron .",
-    "dev": "electron .",
-    "pack": "npm pack"
+    "dev": "electron . --show-armory",
+    "check": "node scripts/check.js",
+    "pack": "npm pack",
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win --x64",
+    "dist:dir": "electron-builder --dir --win --x64"
   },
   "dependencies": {
-    "electron": "^33.0.0",
+    "electron-log": "^5.4.4",
     "koffi": "^2.9.0"
+  },
+  "devDependencies": {
+    "electron": "^43.4.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.whipwhip.desktop",
+    "productName": "WhipWhip",
+    "executableName": "WhipWhip",
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/koffi/**/*"
+    ],
+    "compression": "maximum",
+    "npmRebuild": true,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "overlay.html",
+      "package.json",
+      "LICENSE",
+      "sounds/**/*",
+      "icon/**/*"
+    ],
+    "win": {
+      "icon": "icon/icon.ico",
+      "requestedExecutionLevel": "asInvoker",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "artifactName": "${productName}-${version}-${arch}-setup.${ext}",
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "WhipWhip",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false,
+      "license": "LICENSE"
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-${arch}-portable.${ext}",
+      "requestExecutionLevel": "user"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "AMIRSRAD",
+      "repo": "WhipWhip"
+    }
   }
 }

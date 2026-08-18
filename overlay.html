@@ -1,14 +1,114 @@
 <!DOCTYPE html>
 <html>
 <head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'">
+<meta name="color-scheme" content="dark">
 <style>
-  * { margin: 0; padding: 0; cursor: none; }
-  html, body { overflow: hidden; background: transparent; width: 100%; height: 100%; }
-  canvas { display: block; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; overflow: hidden; background: transparent; width: 100%; height: 100%; }
+  body { font-family: Inter, "Segoe UI", sans-serif; color: #f7f3ff; user-select: none; }
+  body.armed, body.armed * { cursor: none !important; }
+  canvas { position: fixed; inset: 0; display: block; }
+
+  .armory-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 5;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: rgba(5, 6, 8, .64);
+  }
+  .armory-backdrop[hidden] { display: none; }
+  .armory {
+    width: min(780px, calc(100vw - 48px));
+    max-height: calc(100vh - 48px);
+    overflow: auto;
+    padding: 24px;
+    border: 1px solid #303238;
+    border-radius: 18px;
+    background: #121317;
+    box-shadow: 0 18px 60px rgba(0, 0, 0, .42);
+  }
+  .armory-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
+  .eyebrow { margin: 0 0 7px; color: #858993; font-size: 11px; font-weight: 650; letter-spacing: .12em; text-transform: uppercase; }
+  h1 { margin: 0; font-size: clamp(27px, 3.5vw, 34px); font-weight: 650; line-height: 1.1; letter-spacing: -.025em; }
+  .subtitle { margin: 8px 0 0; color: #91959f; font-size: 13px; }
+  .close-button {
+    width: 34px; height: 34px; flex: 0 0 auto; border: 1px solid #34363d; border-radius: 9px;
+    color: #b3b6bd; background: #1b1c21; cursor: pointer; font-size: 19px;
+  }
+  .close-button:hover { color: #fff; border-color: #555861; }
+  .section-title { margin: 22px 0 10px; color: #a8abb3; font-size: 11px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; }
+  .weapon-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; }
+  .weapon-card {
+    min-height: 126px; padding: 15px; border: 1px solid #2d2f35; border-radius: 12px;
+    color: #e6e7ea; text-align: left; background: #18191e; cursor: pointer; transition: border-color .14s ease, background .14s ease;
+  }
+  .weapon-card:hover { border-color: #50535b; background: #1b1d22; }
+  .weapon-card.selected { border-color: #898d96; background: #202228; }
+  .weapon-icon { display: block; margin-bottom: 13px; color: #c6c8ce; font-size: 24px; line-height: 1; }
+  .weapon-name { display: block; font-size: 14px; font-weight: 650; }
+  .weapon-note { display: block; margin-top: 5px; color: #858993; font-size: 11px; line-height: 1.35; }
+  .color-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+  .color-swatch {
+    width: 30px; height: 30px; border: 2px solid #121317; border-radius: 50%;
+    background: var(--swatch); cursor: pointer; box-shadow: 0 0 0 1px #3a3c43; transition: border-color .12s ease;
+  }
+  .color-swatch:hover { border-color: rgba(255,255,255,.7); }
+  .color-swatch.selected { border-color: #fff; box-shadow: 0 0 0 1px #fff; }
+  .custom-color { display: flex; align-items: center; gap: 8px; margin-left: 6px; color: #8e929b; font-size: 12px; }
+  .custom-color input { width: 36px; height: 30px; padding: 2px; border: 1px solid #3a3c43; border-radius: 7px; background: transparent; cursor: pointer; }
+  .armory-footer { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-top: 23px; padding-top: 17px; border-top: 1px solid #292b31; }
+  .hint { color: #787c85; font-size: 11px; }
+  .equip-button {
+    min-width: 150px; padding: 11px 18px; border: 1px solid #f1f2f4; border-radius: 9px; color: #111216; background: #f1f2f4;
+    cursor: pointer; font-size: 13px; font-weight: 700;
+  }
+  .equip-button:hover { background: #fff; }
+  @media (max-width: 720px) { .weapon-grid { grid-template-columns: repeat(2, 1fr); } .armory { padding: 22px; } }
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
+<div id="armoryBackdrop" class="armory-backdrop" hidden>
+  <main class="armory" role="dialog" aria-modal="true" aria-labelledby="armoryTitle">
+    <header class="armory-header">
+      <div>
+        <p class="eyebrow">WhipWhip</p>
+        <h1 id="armoryTitle">Choose a weapon</h1>
+        <p class="subtitle">Select a style and color.</p>
+      </div>
+      <button id="closeArmory" class="close-button" aria-label="Close armory">&times;</button>
+    </header>
+
+    <h2 class="section-title">Weapon</h2>
+    <div class="weapon-grid" role="listbox" aria-label="Weapon style">
+      <button class="weapon-card" data-weapon="classic" role="option"><span class="weapon-icon">⌁</span><span class="weapon-name">Classic Whip</span><span class="weapon-note">Balanced leather snap with the original feel.</span></button>
+      <button class="weapon-card" data-weapon="chain" role="option"><span class="weapon-icon">⛓</span><span class="weapon-name">Chain Flail</span><span class="weapon-note">Heavy metal links and a dangerous spiked tip.</span></button>
+      <button class="weapon-card" data-weapon="plasma" role="option"><span class="weapon-icon">ϟ</span><span class="weapon-name">Plasma Lash</span><span class="weapon-note">Light, fast and wrapped in a neon energy glow.</span></button>
+      <button class="weapon-card" data-weapon="fire" role="option"><span class="weapon-icon">♨</span><span class="weapon-name">Firebrand</span><span class="weapon-note">A hot trailing lash that throws glowing embers.</span></button>
+    </div>
+
+    <h2 class="section-title">Color</h2>
+    <div id="colorRow" class="color-row">
+      <button class="color-swatch" data-color="#ff3b5c" style="--swatch:#ff3b5c" aria-label="Crimson"></button>
+      <button class="color-swatch" data-color="#ff9f1c" style="--swatch:#ff9f1c" aria-label="Amber"></button>
+      <button class="color-swatch" data-color="#ffe45e" style="--swatch:#ffe45e" aria-label="Gold"></button>
+      <button class="color-swatch" data-color="#4dffb8" style="--swatch:#4dffb8" aria-label="Mint"></button>
+      <button class="color-swatch" data-color="#35c8ff" style="--swatch:#35c8ff" aria-label="Cyan"></button>
+      <button class="color-swatch" data-color="#8d6bff" style="--swatch:#8d6bff" aria-label="Violet"></button>
+      <button class="color-swatch" data-color="#ff62d0" style="--swatch:#ff62d0" aria-label="Pink"></button>
+      <label class="custom-color">Custom <input id="customColor" type="color" value="#ff3b5c"></label>
+    </div>
+
+    <footer class="armory-footer">
+      <span class="hint">Move fast to crack · Click to drop</span>
+      <button id="equipButton" class="equip-button">Equip</button>
+    </footer>
+  </main>
+</div>
 <script>
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -66,10 +166,51 @@ const P = {
   arcHeight:      185,    // how high the arc goes above mouse
 };
 
+const DEFAULT_PHYSICS = { ...P };
+const WEAPONS = {
+  classic: {
+    label: 'Classic Whip',
+    physics: {},
+  },
+  chain: {
+    label: 'Chain Flail',
+    physics: {
+      segments: 25, segmentLength: 24, taper: 0.82, gravity: 1.55,
+      dropGravity: 1.25, damping: 0.975, constraintIters: 24,
+      handleMaxBendDeg: 24, tipMaxBendDeg: 105, crackSpeed: 300,
+      lineWidthHandle: 6, lineWidthTip: 4, handleExtraWidth: 2,
+    },
+  },
+  plasma: {
+    label: 'Plasma Lash',
+    physics: {
+      segments: 34, segmentLength: 21, taper: 0.45, gravity: 0.72,
+      damping: 0.94, constraintIters: 16, handleMaxBendDeg: 20,
+      tipMaxBendDeg: 145, crackSpeed: 285, lineWidthHandle: 8,
+      lineWidthTip: 3, outlineWidth: 5, handleExtraWidth: 2,
+    },
+  },
+  fire: {
+    label: 'Firebrand',
+    physics: {
+      segments: 30, segmentLength: 23, taper: 0.52, gravity: 1.0,
+      damping: 0.955, constraintIters: 18, handleMaxBendDeg: 18,
+      tipMaxBendDeg: 140, crackSpeed: 310, lineWidthHandle: 9,
+      lineWidthTip: 4, outlineWidth: 4, handleExtraWidth: 3,
+    },
+  },
+};
+
 // ══════════════════════════════════════════════════════════════════════════════
 
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
+const armoryBackdrop = document.getElementById('armoryBackdrop');
+const weaponCards = [...document.querySelectorAll('.weapon-card')];
+const colorSwatches = [...document.querySelectorAll('.color-swatch')];
+const customColor = document.getElementById('customColor');
+const equipButton = document.getElementById('equipButton');
+const closeArmoryButton = document.getElementById('closeArmory');
 let W, H;
 
 function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
@@ -84,13 +225,92 @@ let lastCrackTime = 0;
 let whipSpawnTime = 0;
 let handleAngle = P.baseTargetAngle;
 let handleAngVel = 0;
+let configuring = false;
+let particles = [];
+
+const storedWeapon = localStorage.getItem('whipwhip.weapon');
+let activeWeapon = Object.hasOwn(WEAPONS, storedWeapon) ? storedWeapon : 'classic';
+const storedColor = localStorage.getItem('whipwhip.color');
+let activeColor = /^#[0-9a-f]{6}$/i.test(storedColor || '') ? storedColor : '#ff3b5c';
 
 const WHIP_CRACK_SOUNDS = ['sounds/A.mp3', 'sounds/B.mp3', 'sounds/C.mp3', 'sounds/D.mp3', 'sounds/E.mp3'];
 
 document.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
-document.addEventListener('mousedown', () => {
+document.addEventListener('mousedown', event => {
+  if (configuring || event.target.closest('.armory')) return;
   if (whip && !dropping) dropping = true;
 });
+
+function applyWeaponSettings() {
+  Object.assign(P, DEFAULT_PHYSICS, WEAPONS[activeWeapon].physics);
+  document.documentElement.style.setProperty('--accent', activeColor);
+}
+
+function refreshArmorySelection() {
+  weaponCards.forEach(card => {
+    const selected = card.dataset.weapon === activeWeapon;
+    card.classList.toggle('selected', selected);
+    card.setAttribute('aria-selected', String(selected));
+  });
+  colorSwatches.forEach(swatch => {
+    swatch.classList.toggle('selected', swatch.dataset.color.toLowerCase() === activeColor.toLowerCase());
+  });
+  customColor.value = activeColor;
+  document.documentElement.style.setProperty('--accent', activeColor);
+}
+
+function openArmory() {
+  whip = null;
+  particles = [];
+  dropping = false;
+  configuring = true;
+  document.body.classList.remove('armed');
+  armoryBackdrop.hidden = false;
+  refreshArmorySelection();
+  window.bridge.setInteractionMode(true);
+}
+
+function closeArmory() {
+  configuring = false;
+  armoryBackdrop.hidden = true;
+  window.bridge.hideOverlay();
+  window.bridge.setInteractionMode(false);
+}
+
+weaponCards.forEach(card => card.addEventListener('click', () => {
+  activeWeapon = card.dataset.weapon;
+  refreshArmorySelection();
+}));
+
+colorSwatches.forEach(swatch => swatch.addEventListener('click', () => {
+  activeColor = swatch.dataset.color;
+  refreshArmorySelection();
+}));
+
+customColor.addEventListener('input', () => {
+  activeColor = customColor.value;
+  refreshArmorySelection();
+});
+
+closeArmoryButton.addEventListener('click', closeArmory);
+equipButton.addEventListener('click', () => {
+  localStorage.setItem('whipwhip.weapon', activeWeapon);
+  localStorage.setItem('whipwhip.color', activeColor);
+  applyWeaponSettings();
+  particles = [];
+  configuring = false;
+  armoryBackdrop.hidden = true;
+  document.body.classList.add('armed');
+  whip = spawnWhip(mouseX || W / 2, mouseY || H / 2);
+  whipSpawnTime = Date.now();
+  prevMouseX = mouseX;
+  prevMouseY = mouseY;
+  handleAngle = P.baseTargetAngle;
+  handleAngVel = 0;
+  window.bridge.setInteractionMode(false);
+});
+
+applyWeaponSettings();
 
 // ── Whip creation ───────────────────────────────────────────────────────────
 function spawnWhip(mx, my) {
@@ -370,6 +590,8 @@ function update() {
   if (dropping && whip.every(p => p.y > H + 60)) {
     whip = null;
     dropping = false;
+    particles = [];
+    document.body.classList.remove('armed');
     window.bridge.hideOverlay();
   }
   prevMouseX = mouseX;
@@ -377,44 +599,36 @@ function update() {
 }
 
 // ── Rendering ───────────────────────────────────────────────────────────────
-function draw() {
-  ctx.clearRect(0, 0, W, H);
+function traceWhipPath() {
+  if (!whip || whip.length < 2) return;
+  ctx.beginPath();
+  ctx.moveTo(whip[0].x, whip[0].y);
+  for (let i = 0; i < whip.length - 1; i++) {
+    const { cp1x, cp1y, cp2x, cp2y, x2, y2 } = whipSegmentBezier(whip, i);
+    ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x2, y2);
+  }
+}
 
-  // Near-invisible fill so the window captures mouse events on Windows
-  ctx.fillStyle = `rgba(0,0,0,${P.bgAlpha})`;
-  ctx.fillRect(0, 0, W, H);
-
-  if (!whip) return;
-
-  // White: thin halo on full spline, then extra thickness only over handle links.
+function strokeWhip(color, width, shadowBlur = 0, alpha = 1) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  ctx.strokeStyle = '#fff';
-  if (whip.length >= 2) {
-    ctx.beginPath();
-    ctx.moveTo(whip[0].x, whip[0].y);
-    for (let i = 0; i < whip.length - 1; i++) {
-      const { cp1x, cp1y, cp2x, cp2y, x2, y2 } = whipSegmentBezier(whip, i);
-      ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x2, y2);
-    }
-    ctx.lineWidth = P.lineWidthTip + P.outlineWidth * 2;
-    ctx.stroke();
+  ctx.shadowColor = color;
+  ctx.shadowBlur = shadowBlur;
+  traceWhipPath();
+  ctx.stroke();
+  ctx.restore();
+}
 
-    const thickLinks = Math.min(P.handleThickSegments, whip.length - 1);
-    if (thickLinks > 0 && P.handleExtraWidth > 0) {
-      ctx.beginPath();
-      ctx.moveTo(whip[0].x, whip[0].y);
-      for (let i = 0; i < thickLinks; i++) {
-        const { cp1x, cp1y, cp2x, cp2y, x2, y2 } = whipSegmentBezier(whip, i);
-        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x2, y2);
-      }
-      ctx.lineWidth =
-        P.lineWidthHandle + P.handleExtraWidth + P.outlineWidth * 2;
-      ctx.stroke();
-    }
-  }
-
-  ctx.strokeStyle = '#111';
+function drawClassicWhip() {
+  strokeWhip('#ffffff', P.lineWidthTip + P.outlineWidth * 2, 0, .94);
+  ctx.save();
+  ctx.strokeStyle = activeColor;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
   for (let i = 0; i < whip.length - 1; i++) {
     const t = i / Math.max(1, whip.length - 2);
     const extra = i < P.handleThickSegments ? P.handleExtraWidth : 0;
@@ -425,11 +639,123 @@ function draw() {
     ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x2, y2);
     ctx.stroke();
   }
+  ctx.restore();
+}
+
+function drawChainFlail() {
+  strokeWhip('rgba(0,0,0,.75)', 8);
+  strokeWhip(activeColor, 3, 8, .9);
+  ctx.save();
+  ctx.strokeStyle = '#f5f2ff';
+  ctx.lineWidth = 2;
+  ctx.shadowColor = activeColor;
+  ctx.shadowBlur = 7;
+  for (let i = 1; i < whip.length - 1; i++) {
+    const p = whip[i];
+    const prev = whip[i - 1];
+    const angle = Math.atan2(p.y - prev.y, p.x - prev.x) + (i % 2 ? 0 : Math.PI / 2);
+    ctx.beginPath();
+    ctx.ellipse(p.x, p.y, 9, 5, angle, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  const tip = whip[whip.length - 1];
+  ctx.fillStyle = '#17131e';
+  ctx.strokeStyle = activeColor;
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.arc(tip.x, tip.y, 15, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  for (let i = 0; i < 8; i++) {
+    const a = i * Math.PI / 4;
+    ctx.beginPath();
+    ctx.moveTo(tip.x + Math.cos(a) * 12, tip.y + Math.sin(a) * 12);
+    ctx.lineTo(tip.x + Math.cos(a) * 23, tip.y + Math.sin(a) * 23);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawPlasmaLash() {
+  strokeWhip(activeColor, 26, 28, .14);
+  strokeWhip(activeColor, 13, 22, .4);
+  strokeWhip(activeColor, 7, 14, .95);
+  strokeWhip('#ffffff', 2.5, 8, .95);
+}
+
+function updateFireParticles() {
+  if (activeWeapon === 'fire' && whip && !dropping && !configuring) {
+    const start = Math.max(2, whip.length - 10);
+    for (let count = 0; count < 2; count++) {
+      const p = whip[start + Math.floor(Math.random() * (whip.length - start))];
+      particles.push({
+        x: p.x, y: p.y, vx: (Math.random() - .5) * 2.8,
+        vy: -1.2 - Math.random() * 2.2, life: 1, size: 2 + Math.random() * 4,
+      });
+    }
+  }
+  particles.forEach(p => {
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += .035;
+    p.life -= .035;
+    p.size *= .985;
+  });
+  particles = particles.filter(p => p.life > 0);
+  if (particles.length > 220) particles.splice(0, particles.length - 220);
+}
+
+function drawFirebrand() {
+  const first = whip[0];
+  const tip = whip[whip.length - 1];
+  const flame = ctx.createLinearGradient(first.x, first.y, tip.x, tip.y);
+  flame.addColorStop(0, activeColor);
+  flame.addColorStop(.58, '#ff641f');
+  flame.addColorStop(1, '#ffe96a');
+  strokeWhip(activeColor, 24, 34, .16);
+  strokeWhip('#ff4a16', 13, 24, .46);
+  ctx.save();
+  ctx.strokeStyle = flame;
+  ctx.lineWidth = 7;
+  ctx.lineCap = 'round';
+  ctx.shadowColor = '#ff7a18';
+  ctx.shadowBlur = 15;
+  traceWhipPath();
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.save();
+  particles.forEach(p => {
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = p.life > .5 ? '#ffe96a' : activeColor;
+    ctx.shadowColor = '#ff641f';
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  ctx.restore();
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // Near-invisible fill so the window captures mouse events on Windows
+  ctx.fillStyle = `rgba(0,0,0,${P.bgAlpha})`;
+  ctx.fillRect(0, 0, W, H);
+
+  if (!whip) return;
+
+  if (activeWeapon === 'chain') drawChainFlail();
+  else if (activeWeapon === 'plasma') drawPlasmaLash();
+  else if (activeWeapon === 'fire') drawFirebrand();
+  else drawClassicWhip();
 }
 
 // ── Main loop ───────────────────────────────────────────────────────────────
 function loop() {
   update();
+  updateFireParticles();
   draw();
   requestAnimationFrame(loop);
 }
@@ -437,16 +763,12 @@ loop();
 
 // ── IPC from main process ───────────────────────────────────────────────────
 window.bridge.onSpawnWhip(() => {
-  whip = spawnWhip(mouseX || W / 2, mouseY || H / 2);
-  dropping = false;
-  prevMouseX = mouseX;
-  prevMouseY = mouseY;
-  handleAngle = P.baseTargetAngle;
-  handleAngVel = 0;
+  openArmory();
 });
 
 window.bridge.onDropWhip(() => {
-  if (whip && !dropping) dropping = true;
+  if (configuring) closeArmory();
+  else if (whip && !dropping) dropping = true;
 });
 
 </script>

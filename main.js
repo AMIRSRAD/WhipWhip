@@ -3,15 +3,24 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const { execFile } = require('child_process');
+const { pathToFileURL } = require('url');
+const log = require('electron-log/main');
+
+log.initialize();
+log.errorHandler.startCatching({ showDialog: false });
+Object.assign(console, log.functions);
 
 // ── Win32 FFI (Windows only) ────────────────────────────────────────────────
-let keybd_event, VkKeyScanA;
+let keybd_event, VkKeyScanA, GetForegroundWindow, SetForegroundWindow, IsWindow;
 if (process.platform === 'win32') {
   try {
     const koffi = require('koffi');
     const user32 = koffi.load('user32.dll');
     keybd_event = user32.func('void __stdcall keybd_event(uint8_t bVk, uint8_t bScan, uint32_t dwFlags, uintptr_t dwExtraInfo)');
     VkKeyScanA = user32.func('int16_t __stdcall VkKeyScanA(int ch)');
+    GetForegroundWindow = user32.func('uintptr_t __stdcall GetForegroundWindow(void)');
+    SetForegroundWindow = user32.func('bool __stdcall SetForegroundWindow(uintptr_t hWnd)');
+    IsWindow = user32.func('bool __stdcall IsWindow(uintptr_t hWnd)');
   } catch (e) {
     console.warn('koffi not available – macro sending disabled', e.message);
   }
@@ -21,6 +30,10 @@ if (process.platform === 'win32') {
 let tray, overlay;
 let overlayReady = false;
 let spawnQueued = false;
+let lastExternalWindow = null;
+let foregroundPoll = null;
+
+const overlayUrl = pathToFileURL(path.join(__dirname, 'overlay.html')).href;
 
 const VK_CONTROL = 0x11;
 const VK_RETURN  = 0x0D;
@@ -29,11 +42,27 @@ const VK_MENU    = 0x12; // Alt
 const VK_TAB     = 0x09;
 const KEYUP      = 0x0002;
 
+app.setName('WhipWhip');
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+
+if (!hasSingleInstanceLock) {
+  app.quit();
+}
+
+function rememberForegroundWindow() {
+  if (!GetForegroundWindow || overlay?.isFocused()) return;
+  const current = GetForegroundWindow();
+  if (current) lastExternalWindow = current;
+}
+
 /** One Alt+Tab / Cmd+Tab so focus returns to the previously active app after tray click. */
 function refocusPreviousApp() {
   const delayMs = 80;
   const run = () => {
     if (process.platform === 'win32') {
+      if (lastExternalWindow && IsWindow?.(lastExternalWindow) && SetForegroundWindow?.(lastExternalWindow)) {
+        return;
+      }
       if (!keybd_event) return;
       keybd_event(VK_MENU, 0, 0, 0);
       keybd_event(VK_TAB, 0, 0, 0);
@@ -72,7 +101,7 @@ function createTrayIconFallback() {
       return img;
     }
   }
-  console.warn('openwhip: icon/Template.png missing or invalid');
+  console.warn('WhipWhip: icon/Template.png missing or invalid');
   return nativeImage.createEmpty();
 }
 
@@ -106,7 +135,7 @@ async function getTrayIcon() {
       } catch (e) {
         console.warn('AppIcon.icns Quick Look thumbnail failed:', e?.message || e);
       }
-      const tmp = path.join(os.tmpdir(), 'openwhip-tray.icns');
+      const tmp = path.join(os.tmpdir(), 'whipwhip-tray.icns');
       try {
         fs.copyFileSync(file, tmp);
         const t = await tryIcnsTrayImage(tmp);
@@ -122,36 +151,59 @@ async function getTrayIcon() {
 
 // ── Overlay window ──────────────────────────────────────────────────────────
 function createOverlay() {
-  const { bounds } = screen.getPrimaryDisplay();
+  const displays = screen.getAllDisplays();
+  const left = Math.min(...displays.map(display => display.bounds.x));
+  const top = Math.min(...displays.map(display => display.bounds.y));
+  const right = Math.max(...displays.map(display => display.bounds.x + display.bounds.width));
+  const bottom = Math.max(...displays.map(display => display.bounds.y + display.bounds.height));
   overlay = new BrowserWindow({
-    x: bounds.x, y: bounds.y,
-    width: bounds.width, height: bounds.height,
+    x: left, y: top,
+    width: right - left, height: bottom - top,
+    show: false,
     transparent: true,
     frame: false,
     alwaysOnTop: true,
     focusable: false,
     skipTaskbar: true,
     resizable: false,
+    fullscreenable: false,
     hasShadow: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      webSecurity: true,
+      devTools: !app.isPackaged,
+      spellcheck: false,
+      backgroundThrottling: false,
     },
   });
   overlay.setAlwaysOnTop(true, 'screen-saver');
+  overlay.setMenuBarVisibility(false);
   overlayReady = false;
-  overlay.loadFile('overlay.html');
+  overlay.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  overlay.webContents.on('will-navigate', (event, details) => {
+    const destination = typeof details === 'string' ? details : details.url;
+    if (destination !== overlayUrl) event.preventDefault();
+  });
+  overlay.webContents.on('will-attach-webview', event => event.preventDefault());
+  overlay.loadFile('overlay.html').catch(error => console.error('Unable to load overlay:', error));
   overlay.webContents.on('did-finish-load', () => {
     overlayReady = true;
     if (spawnQueued && overlay && overlay.isVisible()) {
       spawnQueued = false;
       overlay.webContents.send('spawn-whip');
-      refocusPreviousApp();
     }
   });
   overlay.on('closed', () => {
     overlay = null;
     overlayReady = false;
     spawnQueued = false;
+  });
+  overlay.webContents.on('render-process-gone', (_event, details) => {
+    console.error('Overlay renderer exited unexpectedly:', details.reason);
+    overlay?.hide();
   });
 }
 
@@ -160,25 +212,46 @@ function toggleOverlay() {
     overlay.webContents.send('drop-whip');
     return;
   }
+  rememberForegroundWindow();
   if (!overlay) createOverlay();
   overlay.show();
   if (overlayReady) {
     overlay.webContents.send('spawn-whip');
-    refocusPreviousApp();
   } else {
     spawnQueued = true;
   }
 }
 
 // ── IPC ─────────────────────────────────────────────────────────────────────
-ipcMain.on('whip-crack', () => {
+function isTrustedOverlayEvent(event) {
+  const trusted = event.senderFrame?.url === overlayUrl;
+  if (!trusted) console.warn('Blocked IPC from an untrusted renderer');
+  return trusted;
+}
+
+ipcMain.on('whip-crack', event => {
+  if (!isTrustedOverlayEvent(event)) return;
   try {
     sendMacro();
   } catch (err) {
     console.warn('sendMacro failed:', err?.message || err);
   }
 });
-ipcMain.on('hide-overlay', () => { if (overlay) overlay.hide(); });
+ipcMain.on('hide-overlay', event => {
+  if (!isTrustedOverlayEvent(event)) return;
+  if (overlay) overlay.hide();
+});
+ipcMain.on('set-interaction-mode', (event, configuring) => {
+  if (!isTrustedOverlayEvent(event)) return;
+  if (!overlay) return;
+  const wantsFocus = Boolean(configuring);
+  overlay.setFocusable(wantsFocus);
+  if (wantsFocus) {
+    overlay.focus();
+  } else {
+    refocusPreviousApp();
+  }
+});
 
 // ── Macro: immediate Ctrl+C, type "Go FASER", Enter ───────────────────────
 function sendMacro() {
@@ -277,14 +350,29 @@ function sendMacroLinux(text) {
 
 // ── App lifecycle ───────────────────────────────────────────────────────────
 app.whenReady().then(async () => {
+  if (!hasSingleInstanceLock) return;
   tray = new Tray(await getTrayIcon());
-  tray.setToolTip('OpenWhip - click for whip');
+  tray.setToolTip('WhipWhip - open the armory');
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: 'Quit', click: () => app.quit() },
     ])
   );
   tray.on('click', toggleOverlay);
+  foregroundPoll = setInterval(rememberForegroundWindow, 500);
+  foregroundPoll.unref();
+
+  if (process.argv.includes('--show-armory')) {
+    setTimeout(toggleOverlay, 200);
+  }
 });
 
-app.on('window-all-closed', e => e.preventDefault()); // keep alive in tray
+app.on('second-instance', () => {
+  if (app.isReady() && (!overlay || !overlay.isVisible())) toggleOverlay();
+});
+
+app.on('before-quit', () => {
+  if (foregroundPoll) clearInterval(foregroundPoll);
+});
+
+app.on('window-all-closed', () => {}); // keep alive in tray

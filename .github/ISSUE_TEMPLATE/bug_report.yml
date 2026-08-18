@@ -1,0 +1,48 @@
+name: Bug report
+description: Report a reproducible WhipWhip problem
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the result and what you expected.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: WhipWhip version
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: Operating system
+      placeholder: Windows 11 24H2
+    validations:
+      required: true
+  - type: dropdown
+    id: weapon
+    attributes:
+      label: Weapon
+      options:
+        - Classic Whip
+        - Chain Flail
+        - Plasma Lash
+        - Firebrand
+        - Not weapon-specific
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Remove private information before pasting logs.
+      render: shell
