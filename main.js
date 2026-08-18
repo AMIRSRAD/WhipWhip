@@ -151,17 +151,43 @@ async function getTrayIcon() {
 }
 
 // ── Overlay window ──────────────────────────────────────────────────────────
-function createOverlay() {
+function getVirtualDesktopBounds() {
   const displays = screen.getAllDisplays();
   const left = Math.min(...displays.map(display => display.bounds.x));
   const top = Math.min(...displays.map(display => display.bounds.y));
   const right = Math.max(...displays.map(display => display.bounds.x + display.bounds.width));
   const bottom = Math.max(...displays.map(display => display.bounds.y + display.bounds.height));
+  return { x: left, y: top, width: right - left, height: bottom - top };
+}
+
+function getDesktopLayout() {
+  const desktop = getVirtualDesktopBounds();
+  const activeDisplay = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+  return {
+    desktop,
+    activeDisplay: {
+      x: activeDisplay.bounds.x - desktop.x,
+      y: activeDisplay.bounds.y - desktop.y,
+      width: activeDisplay.bounds.width,
+      height: activeDisplay.bounds.height,
+    },
+  };
+}
+
+function syncOverlayToDisplays() {
+  if (!overlay || overlay.isDestroyed()) return;
+  const layout = getDesktopLayout();
+  overlay.setBounds(layout.desktop, false);
+  if (overlayReady) overlay.webContents.send('desktop-layout', layout);
+}
+
+function createOverlay() {
+  const desktop = getVirtualDesktopBounds();
   overlay = new BrowserWindow({
-    x: left, y: top,
-    width: right - left, height: bottom - top,
+    ...desktop,
     show: false,
     transparent: true,
+    backgroundColor: '#00000000',
     frame: false,
     alwaysOnTop: true,
     focusable: false,
@@ -193,9 +219,10 @@ function createOverlay() {
   overlay.webContents.on('did-finish-load', () => {
     overlayReady = true;
     if (queuedOverlayAction && overlay && overlay.isVisible()) {
-      const action = queuedOverlayAction;
+      const { action, layout } = queuedOverlayAction;
       queuedOverlayAction = null;
-      overlay.webContents.send(action);
+      overlay.webContents.send('desktop-layout', layout);
+      overlay.webContents.send(action, layout);
     }
   });
   overlay.on('closed', () => {
@@ -214,12 +241,15 @@ function showOverlay(action, captureForeground = false) {
   // those calls, retain the app remembered by the background poll instead.
   if (captureForeground) rememberForegroundWindow();
   if (!overlay) createOverlay();
+  const layout = getDesktopLayout();
+  overlay.setBounds(layout.desktop, false);
   overlay.show();
   if (overlayReady) {
     queuedOverlayAction = null;
-    overlay.webContents.send(action);
+    overlay.webContents.send('desktop-layout', layout);
+    overlay.webContents.send(action, layout);
   } else {
-    queuedOverlayAction = action;
+    queuedOverlayAction = { action, layout };
   }
 }
 
@@ -375,6 +405,9 @@ app.whenReady().then(async () => {
     ])
   );
   tray.on('click', showWhip);
+  screen.on('display-added', syncOverlayToDisplays);
+  screen.on('display-removed', syncOverlayToDisplays);
+  screen.on('display-metrics-changed', syncOverlayToDisplays);
   foregroundPoll = setInterval(rememberForegroundWindow, 500);
   foregroundPoll.unref();
 

@@ -2,6 +2,29 @@
 
 All notable changes to WhipWhip are documented here.
 
+## 0.1.3 - 2026-08-18
+
+### Added
+
+- Bullwhip, Rope Dart, Steel Cable, and Ribbon Blade weapon profiles with
+  distinct rendering and physics.
+- A subtle AMIRSRAD ownership line beneath the selector controls.
+
+### Fixed
+
+- The transparent overlay now resynchronizes with the full Windows virtual
+  desktop when monitors are added, removed, repositioned, or change DPI.
+- The selector now opens on the display containing the mouse instead of being
+  centered across the combined multi-monitor rectangle.
+
+### Changed
+
+- Replaced the bright default palette with restrained slate, oxblood, saddle,
+  brass, forest, steel-blue, and aubergine colors.
+- Improved pointer response with smoothed handle tracking, motion-directed aim,
+  weighted tips, tighter stretch control, and fixed 60 Hz physics independent
+  of monitor refresh rate.
+
 ## 0.1.2 - 2026-08-18
 
 ### Fixed

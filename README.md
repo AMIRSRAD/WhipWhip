@@ -15,9 +15,14 @@ keyboard action to the previously active application.
 - **Chain Flail** — heavier physics, individual metal links, and a spiked tip.
 - **Plasma Lash** — faster movement with layered neon energy and bloom.
 - **Firebrand** — a hot gradient, flame glow, and animated embers.
+- **Bullwhip** — a long professional leather taper tuned for precise cracks.
+- **Rope Dart** — a flexible cord with weighted-tip physics and a steel point.
+- **Steel Cable** — short, stiff industrial movement with reinforced nodes.
+- **Ribbon Blade** — broad metallic rendering with light, flowing physics.
 
-Every weapon supports seven presets and a custom color picker. WhipWhip stores
-the last equipped weapon and color locally in Electron's application data.
+Every weapon supports seven restrained color presets and a custom color picker.
+Slate is the professional default. WhipWhip stores the last equipped weapon and
+color locally in Electron's application data.
 
 ## Install on Windows
 
@@ -56,6 +61,10 @@ keyboard automation requires `xdotool`.
 6. Left-click the tray icon to restore the saved whip directly.
 7. Right-click the tray icon for **Show whip**, **Change settings**, and **Quit**.
 
+The transparent overlay follows the complete Windows virtual desktop. Display
+changes and DPI changes are detected while the app is running, and the selector
+opens on the monitor containing the pointer.
+
 ## What the crack does
 
 The current action sends `Ctrl+C`, types a randomly selected encouragement, and
@@ -70,8 +79,8 @@ telemetry, or mine cryptocurrency.
 
 - `main.js` owns the tray, transparent overlay, focus handoff, and OS macros.
 - `preload.js` exposes the narrow IPC bridge used by the UI.
-- `overlay.html` contains the armory, Verlet physics, weapon renderers, particles,
-  crack detection, and local selection persistence.
+- `overlay.html` contains the armory, fixed-step Verlet physics, weapon renderers,
+  particles, crack detection, multi-display layout, and local selection persistence.
 - `bin/whipwhip.js` starts the desktop app when installed as a CLI package.
 
 The renderer is sandboxed and context-isolated, has no Node.js integration, and

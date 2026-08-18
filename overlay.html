@@ -13,17 +13,21 @@
 
   .armory-backdrop {
     position: fixed;
-    inset: 0;
+    left: var(--display-x, 0px);
+    top: var(--display-y, 0px);
+    width: var(--display-width, 100vw);
+    height: var(--display-height, 100vh);
     z-index: 5;
     display: grid;
     place-items: center;
     padding: 24px;
     background: rgba(5, 6, 8, .64);
+    container-type: inline-size;
   }
   .armory-backdrop[hidden] { display: none; }
   .armory {
-    width: min(780px, calc(100vw - 48px));
-    max-height: calc(100vh - 48px);
+    width: min(840px, calc(100% - 48px));
+    max-height: calc(100% - 48px);
     overflow: auto;
     padding: 24px;
     border: 1px solid #303238;
@@ -67,7 +71,9 @@
     cursor: pointer; font-size: 13px; font-weight: 700;
   }
   .equip-button:hover { background: #fff; }
+  .ownership { margin: 14px 0 -4px; color: #676b74; font-size: 10px; letter-spacing: .035em; text-align: center; }
   @media (max-width: 720px) { .weapon-grid { grid-template-columns: repeat(2, 1fr); } .armory { padding: 22px; } }
+  @container (max-width: 720px) { .weapon-grid { grid-template-columns: repeat(2, 1fr); } .armory { padding: 22px; } }
 </style>
 </head>
 <body>
@@ -89,24 +95,29 @@
       <button class="weapon-card" data-weapon="chain" role="option"><span class="weapon-icon">⛓</span><span class="weapon-name">Chain Flail</span><span class="weapon-note">Heavy metal links and a dangerous spiked tip.</span></button>
       <button class="weapon-card" data-weapon="plasma" role="option"><span class="weapon-icon">ϟ</span><span class="weapon-name">Plasma Lash</span><span class="weapon-note">Light, fast and wrapped in a neon energy glow.</span></button>
       <button class="weapon-card" data-weapon="fire" role="option"><span class="weapon-icon">♨</span><span class="weapon-name">Firebrand</span><span class="weapon-note">A hot trailing lash that throws glowing embers.</span></button>
+      <button class="weapon-card" data-weapon="bullwhip" role="option"><span class="weapon-icon">∿</span><span class="weapon-name">Bullwhip</span><span class="weapon-note">Long, tapered leather built for precise cracks.</span></button>
+      <button class="weapon-card" data-weapon="ropeDart" role="option"><span class="weapon-icon">◆</span><span class="weapon-name">Rope Dart</span><span class="weapon-note">Flexible cord with a weighted diamond point.</span></button>
+      <button class="weapon-card" data-weapon="cable" role="option"><span class="weapon-icon">⊙</span><span class="weapon-name">Steel Cable</span><span class="weapon-note">Short, controlled and deliberately industrial.</span></button>
+      <button class="weapon-card" data-weapon="ribbon" role="option"><span class="weapon-icon">≋</span><span class="weapon-name">Ribbon Blade</span><span class="weapon-note">A broad metallic ribbon with flowing movement.</span></button>
     </div>
 
     <h2 class="section-title">Color</h2>
     <div id="colorRow" class="color-row">
-      <button class="color-swatch" data-color="#ff3b5c" style="--swatch:#ff3b5c" aria-label="Crimson"></button>
-      <button class="color-swatch" data-color="#ff9f1c" style="--swatch:#ff9f1c" aria-label="Amber"></button>
-      <button class="color-swatch" data-color="#ffe45e" style="--swatch:#ffe45e" aria-label="Gold"></button>
-      <button class="color-swatch" data-color="#4dffb8" style="--swatch:#4dffb8" aria-label="Mint"></button>
-      <button class="color-swatch" data-color="#35c8ff" style="--swatch:#35c8ff" aria-label="Cyan"></button>
-      <button class="color-swatch" data-color="#8d6bff" style="--swatch:#8d6bff" aria-label="Violet"></button>
-      <button class="color-swatch" data-color="#ff62d0" style="--swatch:#ff62d0" aria-label="Pink"></button>
-      <label class="custom-color">Custom <input id="customColor" type="color" value="#ff3b5c"></label>
+      <button class="color-swatch" data-color="#52606d" style="--swatch:#52606d" aria-label="Slate"></button>
+      <button class="color-swatch" data-color="#7a3e48" style="--swatch:#7a3e48" aria-label="Oxblood"></button>
+      <button class="color-swatch" data-color="#8a6747" style="--swatch:#8a6747" aria-label="Saddle"></button>
+      <button class="color-swatch" data-color="#9a8248" style="--swatch:#9a8248" aria-label="Brass"></button>
+      <button class="color-swatch" data-color="#3f6252" style="--swatch:#3f6252" aria-label="Forest"></button>
+      <button class="color-swatch" data-color="#45647a" style="--swatch:#45647a" aria-label="Steel blue"></button>
+      <button class="color-swatch" data-color="#66516f" style="--swatch:#66516f" aria-label="Aubergine"></button>
+      <label class="custom-color">Custom <input id="customColor" type="color" value="#52606d"></label>
     </div>
 
     <footer class="armory-footer">
-      <span class="hint">Move fast to crack · Click to drop</span>
+      <span class="hint">Move fast to crack · Left-click to drop · Right-click to dismiss</span>
       <button id="equipButton" class="equip-button">Equip</button>
     </footer>
+    <p class="ownership">© 2026 AMIRSRAD · All rights reserved</p>
   </main>
 </div>
 <script>
@@ -123,17 +134,18 @@ const P = {
   // Physics
   gravity:        1.2,   // normal gravity
   dropGravity:    0.95,    // gravity when dropping/despawning
-  damping:        0.96,  // velocity retention per frame (1 = no loss)
-  constraintIters:20,     // higher = stiffer chain
-  maxStretchRatio: 1.2,  // hard cap for per-link stretch during fast whips
+  damping:        0.965, // velocity retention per fixed physics step
+  constraintIters:22,    // higher = stiffer chain
+  maxStretchRatio: 1.12, // hard cap for per-link stretch during fast whips
+  tipWeight:      1.0,   // gravity multiplier blended toward the tip
+  handleTracking: 0.72,  // cursor following; lower values filter pointer jitter
 
   // Dynamic handle aim (target angle + restoring spring, not static lock)
   baseTargetAngle: -1.12, // radians, default "up-right" resting direction
-  handleAimByMouseX: 0.4, // horizontal mouse movement influence on target angle
-  handleAimByMouseY: 0.2, // vertical mouse movement influence on target angle
-  handleAimClamp:    2.0,  // max radians target can deviate from base angle
-  handleSpring:      0.7,  // restoring force to target angle
-  handleAngularDamping: 0.078, // angular velocity damping
+  handleMotionInfluence: .88, // how strongly the base trails mouse movement
+  handleVelocityForFullAim: 34, // px per 60 Hz step for maximum aim influence
+  handleSpring:      0.18, // restoring force to target angle
+  handleAngularDamping: 0.76, // angular velocity retention
   basePoseSegments: 2,    // how many early segments are strongly guided
   basePoseStiffStart: 0.9, // stiffness near handle
   basePoseStiffEnd:   0.8, // stiffness near end of guided region
@@ -199,6 +211,46 @@ const WEAPONS = {
       lineWidthTip: 4, outlineWidth: 4, handleExtraWidth: 3,
     },
   },
+  bullwhip: {
+    label: 'Bullwhip',
+    physics: {
+      segments: 38, segmentLength: 20, taper: 0.28, gravity: 1.05,
+      damping: 0.962, constraintIters: 25, maxStretchRatio: 1.08,
+      handleMaxBendDeg: 12, tipMaxBendDeg: 155, crackSpeed: 315,
+      lineWidthHandle: 10, lineWidthTip: 2.5, outlineWidth: 2,
+      handleExtraWidth: 4, handleThickSegments: 4, arcWidth: 300,
+    },
+  },
+  ropeDart: {
+    label: 'Rope Dart',
+    physics: {
+      segments: 32, segmentLength: 22, taper: 0.82, gravity: 1.15,
+      tipWeight: 2.25, damping: 0.972, constraintIters: 24,
+      handleMaxBendDeg: 26, tipMaxBendDeg: 165, crackSpeed: 300,
+      lineWidthHandle: 5, lineWidthTip: 3, outlineWidth: 2,
+      handleExtraWidth: 1, arcWidth: 275,
+    },
+  },
+  cable: {
+    label: 'Steel Cable',
+    physics: {
+      segments: 24, segmentLength: 22, taper: 0.9, gravity: 1.35,
+      tipWeight: 1.35, damping: 0.978, constraintIters: 28,
+      maxStretchRatio: 1.06, handleMaxBendDeg: 9, tipMaxBendDeg: 82,
+      crackSpeed: 325, lineWidthHandle: 8, lineWidthTip: 6,
+      outlineWidth: 2, handleExtraWidth: 2, arcWidth: 225,
+    },
+  },
+  ribbon: {
+    label: 'Ribbon Blade',
+    physics: {
+      segments: 34, segmentLength: 22, taper: 0.5, gravity: 0.82,
+      damping: 0.95, constraintIters: 19, handleTracking: 0.78,
+      handleMaxBendDeg: 18, tipMaxBendDeg: 168, crackSpeed: 292,
+      lineWidthHandle: 14, lineWidthTip: 4, outlineWidth: 1,
+      handleExtraWidth: 1, arcWidth: 290, arcHeight: 210,
+    },
+  },
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -218,7 +270,10 @@ resize();
 window.addEventListener('resize', resize);
 
 let mouseX = 0, mouseY = 0;
-let prevMouseX = 0, prevMouseY = 0;
+let handleX = 0, handleY = 0;
+let mouseVelocityX = 0, mouseVelocityY = 0;
+let lastPointerTime = 0;
+let pointerSeen = false;
 let whip = null;
 let dropping = false;
 let lastCrackTime = 0;
@@ -228,12 +283,29 @@ let handleAngVel = 0;
 let configuring = false;
 let particles = [];
 
+const DEFAULT_COLOR = '#52606d';
+const LEGACY_DEFAULT_COLOR = '#ff3b5c';
+const PALETTE_VERSION = 'professional-v1';
 let activeWeapon = 'classic';
-let activeColor = '#ff3b5c';
+let activeColor = DEFAULT_COLOR;
 
 const WHIP_CRACK_SOUNDS = ['sounds/A.mp3', 'sounds/B.mp3', 'sounds/C.mp3', 'sounds/D.mp3', 'sounds/E.mp3'];
 
-document.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
+document.addEventListener('mousemove', event => {
+  const now = performance.now();
+  if (pointerSeen) {
+    const elapsed = clamp(now - lastPointerTime, 4, 50);
+    const frameScale = 1000 / 60 / elapsed;
+    const instantX = (event.clientX - mouseX) * frameScale;
+    const instantY = (event.clientY - mouseY) * frameScale;
+    mouseVelocityX = lerp(mouseVelocityX, instantX, .38);
+    mouseVelocityY = lerp(mouseVelocityY, instantY, .38);
+  }
+  mouseX = event.clientX;
+  mouseY = event.clientY;
+  lastPointerTime = now;
+  pointerSeen = true;
+});
 document.addEventListener('mousedown', event => {
   if (event.button !== 0) return;
   if (configuring || event.target.closest('.armory')) return;
@@ -246,9 +318,23 @@ document.addEventListener('contextmenu', event => {
 
 function restoreSavedSelection() {
   const storedWeapon = localStorage.getItem('whipwhip.weapon');
-  const storedColor = localStorage.getItem('whipwhip.color');
+  let storedColor = localStorage.getItem('whipwhip.color');
+  if (localStorage.getItem('whipwhip.palette') !== PALETTE_VERSION) {
+    if (!storedColor || storedColor.toLowerCase() === LEGACY_DEFAULT_COLOR) storedColor = DEFAULT_COLOR;
+    localStorage.setItem('whipwhip.palette', PALETTE_VERSION);
+    localStorage.setItem('whipwhip.color', storedColor || DEFAULT_COLOR);
+  }
   activeWeapon = Object.hasOwn(WEAPONS, storedWeapon) ? storedWeapon : 'classic';
-  activeColor = /^#[0-9a-f]{6}$/i.test(storedColor || '') ? storedColor : '#ff3b5c';
+  activeColor = /^#[0-9a-f]{6}$/i.test(storedColor || '') ? storedColor : DEFAULT_COLOR;
+}
+
+function applyDesktopLayout(layout) {
+  const display = layout?.activeDisplay;
+  if (!display) return;
+  armoryBackdrop.style.setProperty('--display-x', `${display.x}px`);
+  armoryBackdrop.style.setProperty('--display-y', `${display.y}px`);
+  armoryBackdrop.style.setProperty('--display-width', `${display.width}px`);
+  armoryBackdrop.style.setProperty('--display-height', `${display.height}px`);
 }
 
 function applyWeaponSettings() {
@@ -269,7 +355,8 @@ function refreshArmorySelection() {
   document.documentElement.style.setProperty('--accent', activeColor);
 }
 
-function openArmory() {
+function openArmory(layout) {
+  applyDesktopLayout(layout);
   restoreSavedSelection();
   whip = null;
   particles = [];
@@ -294,9 +381,11 @@ function beginWhip() {
   configuring = false;
   armoryBackdrop.hidden = true;
   document.body.classList.add('armed');
-  whip = spawnWhip(mouseX || W / 2, mouseY || H / 2);
-  prevMouseX = mouseX;
-  prevMouseY = mouseY;
+  handleX = pointerSeen ? mouseX : W / 2;
+  handleY = pointerSeen ? mouseY : H / 2;
+  mouseVelocityX = 0;
+  mouseVelocityY = 0;
+  whip = spawnWhip(handleX, handleY);
   handleAngle = P.baseTargetAngle;
   handleAngVel = 0;
   window.bridge.setInteractionMode(false);
@@ -414,18 +503,18 @@ function playCrackSound() {
 
 function updateHandleAim() {
   if (dropping) return;
-  const mvx = mouseX - prevMouseX;
-  const mvy = mouseY - prevMouseY;
-  const delta = clamp(
-    mvx * P.handleAimByMouseX + mvy * P.handleAimByMouseY,
-    -P.handleAimClamp,
-    P.handleAimClamp
-  );
-  const target = P.baseTargetAngle + delta;
+  const speed = Math.hypot(mouseVelocityX, mouseVelocityY);
+  const motionWeight = clamp(speed / P.handleVelocityForFullAim, 0, 1) * P.handleMotionInfluence;
+  const trailingAngle = speed > .1
+    ? Math.atan2(-mouseVelocityY, -mouseVelocityX)
+    : P.baseTargetAngle;
+  const target = P.baseTargetAngle + wrapPi(trailingAngle - P.baseTargetAngle) * motionWeight;
   const err = wrapPi(target - handleAngle);
   handleAngVel += err * P.handleSpring;
   handleAngVel *= P.handleAngularDamping;
   handleAngle = wrapPi(handleAngle + handleAngVel);
+  mouseVelocityX *= .84;
+  mouseVelocityY *= .84;
 }
 
 function applyBasePose() {
@@ -546,24 +635,31 @@ function update() {
   const g = dropping ? P.dropGravity : P.gravity;
   updateHandleAim();
 
+  if (!dropping) {
+    handleX = lerp(handleX, mouseX, P.handleTracking);
+    handleY = lerp(handleY, mouseY, P.handleTracking);
+  }
+
   // Verlet integration
   const start = dropping ? 0 : 1; // if dropping, handle is free too
   for (let i = start; i < whip.length; i++) {
     const p = whip[i];
     const vx = (p.x - p.px) * P.damping;
     const vy = (p.y - p.py) * P.damping;
+    const position = i / Math.max(1, whip.length - 1);
+    const gravityScale = lerp(1, P.tipWeight, position * position * position * position);
     p.px = p.x;
     p.py = p.y;
     p.x += vx;
-    p.y += vy + g;
+    p.y += vy + g * gravityScale;
   }
 
   // Pin handle to mouse
   if (!dropping) {
-    whip[0].x = mouseX;
-    whip[0].y = mouseY;
-    whip[0].px = mouseX;
-    whip[0].py = mouseY;
+    whip[0].x = handleX;
+    whip[0].y = handleY;
+    whip[0].px = handleX;
+    whip[0].py = handleY;
   }
 
   // Prevent rubber-band stretching spikes before constraints.
@@ -619,8 +715,6 @@ function update() {
     document.body.classList.remove('armed');
     window.bridge.hideOverlay();
   }
-  prevMouseX = mouseX;
-  prevMouseY = mouseY;
 }
 
 // ── Rendering ───────────────────────────────────────────────────────────────
@@ -708,6 +802,100 @@ function drawPlasmaLash() {
   strokeWhip('#ffffff', 2.5, 8, .95);
 }
 
+function drawBullwhip() {
+  strokeWhip('rgba(7,8,10,.92)', P.lineWidthHandle + 6, 0, .9);
+  ctx.save();
+  ctx.strokeStyle = activeColor;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  for (let i = 0; i < whip.length - 1; i++) {
+    const t = i / Math.max(1, whip.length - 2);
+    ctx.lineWidth = lerp(P.lineWidthHandle, P.lineWidthTip, t);
+    const segment = whipSegmentBezier(whip, i);
+    ctx.beginPath();
+    ctx.moveTo(whip[i].x, whip[i].y);
+    ctx.bezierCurveTo(segment.cp1x, segment.cp1y, segment.cp2x, segment.cp2y, segment.x2, segment.y2);
+    ctx.stroke();
+  }
+  ctx.strokeStyle = 'rgba(235,231,220,.62)';
+  ctx.lineWidth = 1.5;
+  for (let i = 0; i < Math.min(5, whip.length - 1); i++) {
+    const a = whip[i], b = whip[i + 1];
+    const angle = Math.atan2(b.y - a.y, b.x - a.x) + Math.PI / 2;
+    const radius = lerp(7, 4, i / 5);
+    ctx.beginPath();
+    ctx.moveTo(a.x - Math.cos(angle) * radius, a.y - Math.sin(angle) * radius);
+    ctx.lineTo(a.x + Math.cos(angle) * radius, a.y + Math.sin(angle) * radius);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawRopeDart() {
+  strokeWhip('rgba(8,9,11,.9)', 7);
+  strokeWhip(activeColor, 3.5, 0, .96);
+  strokeWhip('rgba(238,239,236,.5)', 1, 0, .8);
+  const tip = whip[whip.length - 1];
+  const previous = whip[whip.length - 2];
+  const angle = Math.atan2(tip.y - previous.y, tip.x - previous.x);
+  ctx.save();
+  ctx.translate(tip.x, tip.y);
+  ctx.rotate(angle);
+  ctx.fillStyle = '#d7d9d8';
+  ctx.strokeStyle = activeColor;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(25, 0);
+  ctx.lineTo(-4, -11);
+  ctx.lineTo(-13, 0);
+  ctx.lineTo(-4, 11);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawSteelCable() {
+  strokeWhip('rgba(5,6,7,.94)', 13);
+  strokeWhip('#747b80', 8, 0, .98);
+  strokeWhip(activeColor, 3, 3, .9);
+  ctx.save();
+  for (let i = 3; i < whip.length; i += 4) {
+    const p = whip[i];
+    ctx.fillStyle = '#202429';
+    ctx.strokeStyle = '#a7adb1';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 4.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawRibbonBlade() {
+  strokeWhip('rgba(7,8,10,.7)', P.lineWidthHandle + 7, 0, .72);
+  strokeWhip(activeColor, P.lineWidthHandle, 4, .92);
+  strokeWhip('rgba(235,238,240,.72)', 2, 0, .88);
+  const tip = whip[whip.length - 1];
+  const previous = whip[whip.length - 2];
+  const angle = Math.atan2(tip.y - previous.y, tip.x - previous.x);
+  ctx.save();
+  ctx.translate(tip.x, tip.y);
+  ctx.rotate(angle);
+  ctx.fillStyle = activeColor;
+  ctx.strokeStyle = '#d8dbdd';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(18, 0);
+  ctx.lineTo(-7, -6);
+  ctx.lineTo(-4, 6);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+}
+
 function updateFireParticles() {
   if (activeWeapon === 'fire' && whip && !dropping && !configuring) {
     const start = Math.max(2, whip.length - 10);
@@ -774,25 +962,40 @@ function draw() {
   if (activeWeapon === 'chain') drawChainFlail();
   else if (activeWeapon === 'plasma') drawPlasmaLash();
   else if (activeWeapon === 'fire') drawFirebrand();
+  else if (activeWeapon === 'bullwhip') drawBullwhip();
+  else if (activeWeapon === 'ropeDart') drawRopeDart();
+  else if (activeWeapon === 'cable') drawSteelCable();
+  else if (activeWeapon === 'ribbon') drawRibbonBlade();
   else drawClassicWhip();
 }
 
 // ── Main loop ───────────────────────────────────────────────────────────────
-function loop() {
-  update();
-  updateFireParticles();
+const PHYSICS_STEP_MS = 1000 / 60;
+let lastFrameTime = performance.now();
+let physicsAccumulator = 0;
+
+function loop(frameTime) {
+  physicsAccumulator += Math.min(frameTime - lastFrameTime, PHYSICS_STEP_MS * 3);
+  lastFrameTime = frameTime;
+  while (physicsAccumulator >= PHYSICS_STEP_MS) {
+    update();
+    updateFireParticles();
+    physicsAccumulator -= PHYSICS_STEP_MS;
+  }
   draw();
   requestAnimationFrame(loop);
 }
-loop();
+requestAnimationFrame(loop);
 
 // ── IPC from main process ───────────────────────────────────────────────────
-window.bridge.onSpawnWhip(() => {
+window.bridge.onSpawnWhip(layout => {
+  applyDesktopLayout(layout);
   restoreSavedSelection();
   beginWhip();
 });
 
 window.bridge.onOpenArmory(openArmory);
+window.bridge.onDesktopLayout(applyDesktopLayout);
 
 window.bridge.onDropWhip(() => {
   if (configuring) closeArmory();
