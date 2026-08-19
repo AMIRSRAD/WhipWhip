@@ -2,6 +2,21 @@
 
 All notable changes to WhipWhip are documented here.
 
+## 0.1.5 - 2026-08-19
+
+### Added
+
+- A clearly labeled keyboard-automation checkbox in the selector.
+- A separate remembered checkbox for the existing crack sounds, enabled by
+  default to preserve prior audio behavior.
+
+### Security
+
+- Crack-triggered `Ctrl+C`, phrase typing, and Enter are now disabled by
+  default and enforced by the main process unless the user explicitly opts in.
+- The automation preference is stored locally and can be changed from the
+  selector at any time.
+
 ## 0.1.4 - 2026-08-18
 
 ### Fixed

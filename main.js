@@ -32,6 +32,7 @@ let overlayReady = false;
 let queuedOverlayAction = null;
 let lastExternalWindow = null;
 let foregroundPoll = null;
+let macroEnabled = false;
 
 const overlayUrl = pathToFileURL(path.join(__dirname, 'overlay.html')).href;
 
@@ -274,11 +275,16 @@ function isTrustedOverlayEvent(event) {
 
 ipcMain.on('whip-crack', event => {
   if (!isTrustedOverlayEvent(event)) return;
+  if (!macroEnabled) return;
   try {
     sendMacro();
   } catch (err) {
     console.warn('sendMacro failed:', err?.message || err);
   }
+});
+ipcMain.on('set-macro-enabled', (event, enabled) => {
+  if (!isTrustedOverlayEvent(event)) return;
+  macroEnabled = enabled === true;
 });
 ipcMain.on('hide-overlay', event => {
   if (!isTrustedOverlayEvent(event)) return;

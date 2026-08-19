@@ -54,12 +54,15 @@ keyboard automation requires `xdotool`.
 
 1. Launch WhipWhip to open the selector. Starting it again reuses the existing
    process and brings the selector back—only one instance can run.
-2. Choose a weapon and color, then select **Equip**.
-3. Move the mouse sharply to crack the weapon.
-4. Left-click anywhere to drop it with animation.
-5. Right-click anywhere to dismiss it immediately.
-6. Left-click the tray icon to restore the saved whip directly.
-7. Right-click the tray icon for **Show whip**, **Change settings**, and **Quit**.
+2. Choose a weapon and color. Crack audio is on by default and can be disabled
+   independently. Keyboard automation is off by default; enable it only if you
+   want crack messages typed for you.
+3. Select **Equip**.
+4. Move the mouse sharply to crack the weapon.
+5. Left-click anywhere to drop it with animation.
+6. Right-click anywhere to dismiss it immediately.
+7. Left-click the tray icon to restore the saved whip directly.
+8. Right-click the tray icon for **Show whip**, **Change settings**, and **Quit**.
 
 The transparent overlay follows the complete Windows virtual desktop. Display
 changes and DPI changes are detected while the app is running, and the selector
@@ -67,9 +70,11 @@ opens on the monitor containing the pointer.
 
 ## What the crack does
 
-The current action sends `Ctrl+C`, types a randomly selected encouragement, and
-presses Enter. On Windows this uses `user32.dll` through Koffi, so the keystrokes
-are real and are sent to whichever application has focus.
+When keyboard automation is enabled, a detected crack sends `Ctrl+C`, types a
+randomly selected encouragement, and presses Enter. On Windows this uses
+`user32.dll` through Koffi, so the keystrokes are real and are sent to whichever
+application has focus. The setting is disabled by default and remembered locally.
+Crack audio has its own remembered checkbox and is enabled by default.
 
 Be careful around terminals or editors with unsaved work: `Ctrl+C` interrupts
 the foreground process. WhipWhip does not connect to Claude, use an AI API, send

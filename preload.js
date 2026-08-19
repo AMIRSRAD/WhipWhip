@@ -2,6 +2,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('bridge', {
   whipCrack: () => ipcRenderer.send('whip-crack'),
+  setMacroEnabled: enabled => ipcRenderer.send('set-macro-enabled', enabled === true),
   hideOverlay: () => ipcRenderer.send('hide-overlay'),
   setInteractionMode: configuring => ipcRenderer.send('set-interaction-mode', configuring),
   onSpawnWhip: (fn) => ipcRenderer.on('spawn-whip', (_event, layout) => fn(layout)),

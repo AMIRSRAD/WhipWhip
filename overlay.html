@@ -64,6 +64,15 @@
   .color-swatch.selected { border-color: #fff; box-shadow: 0 0 0 1px #fff; }
   .custom-color { display: flex; align-items: center; gap: 8px; margin-left: 6px; color: #8e929b; font-size: 12px; }
   .custom-color input { width: 36px; height: 30px; padding: 2px; border: 1px solid #3a3c43; border-radius: 7px; background: transparent; cursor: pointer; }
+  .automation-option {
+    display: flex; align-items: flex-start; gap: 11px; padding: 12px 13px; border: 1px solid #2d2f35;
+    border-radius: 10px; color: #d7d9dd; background: #18191e; cursor: pointer;
+  }
+  .automation-option input { width: 17px; height: 17px; margin: 1px 0 0; accent-color: #d8dadd; cursor: pointer; }
+  .automation-copy { display: grid; gap: 3px; }
+  .automation-name { font-size: 12px; font-weight: 650; }
+  .automation-note { color: #7f838c; font-size: 10px; line-height: 1.4; }
+  .option-list { display: grid; gap: 8px; }
   .armory-footer { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-top: 23px; padding-top: 17px; border-top: 1px solid #292b31; }
   .hint { color: #787c85; font-size: 11px; }
   .equip-button {
@@ -111,6 +120,24 @@
       <button class="color-swatch" data-color="#45647a" style="--swatch:#45647a" aria-label="Steel blue"></button>
       <button class="color-swatch" data-color="#66516f" style="--swatch:#66516f" aria-label="Aubergine"></button>
       <label class="custom-color">Custom <input id="customColor" type="color" value="#52606d"></label>
+    </div>
+
+    <h2 class="section-title">Crack actions</h2>
+    <div class="option-list">
+      <label class="automation-option">
+        <input id="soundEnabled" type="checkbox">
+        <span class="automation-copy">
+          <span class="automation-name">Play crack sound</span>
+          <span class="automation-note">On by default. Plays one of the existing WhipWhip crack sounds.</span>
+        </span>
+      </label>
+      <label class="automation-option">
+        <input id="macroEnabled" type="checkbox">
+        <span class="automation-copy">
+          <span class="automation-name">Send a message when the whip cracks</span>
+          <span class="automation-note">Off by default. Sends Ctrl+C, types a random phrase, and presses Enter in the previously active app.</span>
+        </span>
+      </label>
     </div>
 
     <footer class="armory-footer">
@@ -260,6 +287,8 @@ const armoryBackdrop = document.getElementById('armoryBackdrop');
 const weaponCards = [...document.querySelectorAll('.weapon-card')];
 const colorSwatches = [...document.querySelectorAll('.color-swatch')];
 const customColor = document.getElementById('customColor');
+const soundEnabledCheckbox = document.getElementById('soundEnabled');
+const macroEnabledCheckbox = document.getElementById('macroEnabled');
 const equipButton = document.getElementById('equipButton');
 const closeArmoryButton = document.getElementById('closeArmory');
 let W, H;
@@ -282,6 +311,9 @@ let particles = [];
 const DEFAULT_COLOR = '#52606d';
 const LEGACY_DEFAULT_COLOR = '#ff3b5c';
 const PALETTE_VERSION = 'professional-v1';
+const SOUND_ENABLED_KEY = 'whipwhip.soundEnabled';
+const MACRO_ENABLED_KEY = 'whipwhip.macroEnabled';
+let soundEnabled = true;
 let activeWeapon = 'classic';
 let activeColor = DEFAULT_COLOR;
 
@@ -308,6 +340,18 @@ function restoreSavedSelection() {
   }
   activeWeapon = Object.hasOwn(WEAPONS, storedWeapon) ? storedWeapon : 'classic';
   activeColor = /^#[0-9a-f]{6}$/i.test(storedColor || '') ? storedColor : DEFAULT_COLOR;
+}
+
+function restoreMacroSetting() {
+  const enabled = localStorage.getItem(MACRO_ENABLED_KEY) === 'true';
+  macroEnabledCheckbox.checked = enabled;
+  window.bridge.setMacroEnabled(enabled);
+}
+
+function restoreSoundSetting() {
+  const stored = localStorage.getItem(SOUND_ENABLED_KEY);
+  soundEnabled = stored === null ? true : stored === 'true';
+  soundEnabledCheckbox.checked = soundEnabled;
 }
 
 function applyDesktopLayout(layout) {
@@ -340,6 +384,8 @@ function refreshArmorySelection() {
 function openArmory(layout) {
   applyDesktopLayout(layout);
   restoreSavedSelection();
+  restoreSoundSetting();
+  restoreMacroSetting();
   whip = null;
   particles = [];
   dropping = false;
@@ -396,6 +442,17 @@ customColor.addEventListener('input', () => {
   refreshArmorySelection();
 });
 
+macroEnabledCheckbox.addEventListener('change', () => {
+  const enabled = macroEnabledCheckbox.checked;
+  localStorage.setItem(MACRO_ENABLED_KEY, String(enabled));
+  window.bridge.setMacroEnabled(enabled);
+});
+
+soundEnabledCheckbox.addEventListener('change', () => {
+  soundEnabled = soundEnabledCheckbox.checked;
+  localStorage.setItem(SOUND_ENABLED_KEY, String(soundEnabled));
+});
+
 closeArmoryButton.addEventListener('click', closeArmory);
 equipButton.addEventListener('click', () => {
   localStorage.setItem('whipwhip.weapon', activeWeapon);
@@ -404,6 +461,8 @@ equipButton.addEventListener('click', () => {
 });
 
 restoreSavedSelection();
+restoreSoundSetting();
+restoreMacroSetting();
 applyWeaponSettings();
 
 // ── Whip creation ───────────────────────────────────────────────────────────
@@ -475,7 +534,7 @@ const wrapPi = a => {
 };
 
 function playCrackSound() {
-  if (!WHIP_CRACK_SOUNDS.length) return;
+  if (!soundEnabled || !WHIP_CRACK_SOUNDS.length) return;
   const src = WHIP_CRACK_SOUNDS[Math.floor(Math.random() * WHIP_CRACK_SOUNDS.length)];
   const a = new Audio(src);
   a.play().catch(() => {});
